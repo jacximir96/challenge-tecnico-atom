@@ -1,0 +1,524 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 48
+            }
+          ]
+        }
+      },
+      "name": "Cron inicial",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        -1296,
+        560
+      ],
+      "id": "daef10bd-3471-40b2-8842-b35f3065ab29"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "11kCLJSQ5LYLCSbrS0XWKMmbw6z4XaZ3siMx2kAEyvFE",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Hola1",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "name": "Obtener registros de google sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        -1088,
+        560
+      ],
+      "id": "39711a40-8f14-49c1-8610-6486002a8dd2",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "uHrpZfmIrZXkhT13",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Procesar datos y agrupar por Tipo-Marca\nconst items = $input.all();\nconst processedData = {};\n\nitems.forEach(item => {\n  const data = item.json;\n  \n  // Saltar headers y filas vacías\n  if (!data.Tipo || data.Tipo === 'Tipo' || !data.Marca) return;\n  \n  const key = `${data.Tipo} - ${data.Marca}`;\n  \n  if (!processedData[key]) {\n    processedData[key] = [];\n  }\n  \n  processedData[key].push({\n    tipo: data.Tipo,\n    marca: data.Marca,\n    modelo: data.Modelo || '',\n    año: data['Año'] || '',\n    informacion: data['Información General'] || '',\n    precio: data['Precio (USD)'] || 0,\n    estado: data.Estado || 'Regular',\n    mantenimiento: data['Último Mantenimiento'] || ''\n  });\n});\n\n// Ordenar cada grupo por Marca y luego por Modelo\nObject.keys(processedData).forEach(key => {\n  processedData[key].sort((a, b) => {\n    if (a.marca !== b.marca) return a.marca.localeCompare(b.marca);\n    return a.modelo.localeCompare(b.modelo);\n  });\n});\n\nconsole.log(`Procesando ${Object.keys(processedData).length} grupos de Tipo-Marca`);\n\nreturn Object.keys(processedData).map(tableName => ({\n  json: {\n    tableName,\n    records: processedData[tableName]\n  }\n}));"
+      },
+      "name": "Procesar y agrupar datos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -864,
+        560
+      ],
+      "id": "426e619c-3917-4a43-9da0-18ea71456095"
+    },
+    {
+      "parameters": {
+        "jsCode": "const [inputData, httpData] = $input.all().map(item => item.json);\n\nreturn [{\n  json: {\n    ...inputData,\n    ...httpData\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        272
+      ],
+      "id": "d3e42090-1c8a-4b6c-9eeb-6f007cb3a843",
+      "name": "Descomponer registros"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.airtable.com/v0/meta/bases/{{ $json.baseId }}/tables",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "airtableTokenApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "name",
+              "value": "={{$json.createTablePayload.name}}"
+            },
+            {
+              "name": "fields",
+              "value": "={{ $json.createTablePayload.fields}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "name": "Crear nueva tabla",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        752,
+        400
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "id": "00d12ac5-8e3e-43a9-9f55-6ff88c037ef6",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "NxYUtqhyJyyLzcHv",
+          "name": "Airtable Personal Access Token account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "amount": 1
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1664,
+        560
+      ],
+      "id": "57cd971e-b37b-4776-b47a-81dc515e243a",
+      "name": "Intervalo de espera",
+      "webhookId": "ba880f64-5791-42b0-8886-09eee73a440d"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "= https://api.airtable.com/v0/appmACzQLckIXxlTG/{{ $json.tableId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "airtableTokenApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "records",
+              "value": "={{ $json.records }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1424,
+        560
+      ],
+      "id": "e1c94346-16ef-4453-bb5f-bd16ca0aa2f6",
+      "name": "HTTP - Insertar registros en airtable",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "NxYUtqhyJyyLzcHv",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const records = $json.records;\n  const tableName = $json.tableName;\n  \n  let tableId;\n  if ($json.needsTableCreation) {\n    const createResponse = $('Crear nueva tabla').first();\n    tableId = createResponse?.json?.id;\n    console.log(`✨ Nueva tabla creada: ${tableName} (${tableId})`);\n  } else {\n    tableId = $json.tableId;\n    console.log(`♻️ Usando tabla existente: ${tableName} (${tableId})`);\n  }\n\n  if (!tableId) {\n    throw new Error('No se pudo obtener el ID de la tabla');\n  }\n\n  const batchSize = 10;\n  const batches = [];\n\n  for (let i = 0; i < records.length; i += batchSize) {\n    const batch = records.slice(i, i + batchSize).map(record => ({\n      fields: {\n        \"tipo\": record.tipo,\n        \"marca\": record.marca,\n        \"modelo\": record.modelo,\n        \"ano\": record.año ? parseInt(record.año) : null,\n        \"informacion\": record.informacion,\n        \"precio\": record.precio ? parseFloat(record.precio) : null,\n        \"estado\": record.estado,\n        \"mantenimiento\": record.mantenimiento\n      }\n    }));\n\n    batches.push({\n      tableName,\n      tableId,\n      records: batch,\n      batchNumber: Math.floor(i / batchSize) + 1,\n      totalBatches: Math.ceil(records.length / batchSize)\n    });\n  }\n\n  console.log(`📦 Preparando ${batches.length} lotes para tabla ${tableName}`);\n\n  return batches.map(batch => ({ json: batch }));\n\n} catch (error) {\n  console.error('Error preparando datos:', error);\n  return [{\n    json: {\n      error: true,\n      message: error.message,\n      tableName: $json.tableName\n    }\n  }];\n}\n"
+      },
+      "name": "Preparar registros para insertar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        560
+      ],
+      "id": "9d9668af-d16a-4e31-97ba-e15ba5a55d9c"
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "name": "Dividir en lotes",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -640,
+        560
+      ],
+      "id": "7c48c14a-56c8-499a-85a8-e176ad6d9fb9",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "=https://api.airtable.com/v0/meta/bases/{{ $json.baseId }}/tables",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "airtableTokenApi",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Comprobar tablas existentes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -192,
+        560
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "id": "beb5d3a1-e7b0-4da2-afaf-4743be129265",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "NxYUtqhyJyyLzcHv",
+          "name": "Airtable Personal Access Token account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -32,
+        272
+      ],
+      "id": "7b5d2842-94ce-498c-9b25-b8f131007a22",
+      "name": "Combinar valores 1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const tableName = $json.tableName;\nconst baseId = $json.baseId;\n\ntry {\n  const tablesResponse = $('Comprobar tablas existentes').first().json;\n  const existingTables = tablesResponse.tables || [];\n  const tableExists = existingTables.some(table => table.name === tableName);\n\n  console.log(`🔍 Verificando tabla: ${tableName} - Existe: ${tableExists}`);\n\n  if (!tableExists) {\n    const sampleRecord = $json.records?.[0] || {};\n\n    const inferredFields = Object.entries(sampleRecord).map(([key, value]) => {\n      // Renombrar \"año\" a \"ano\" para evitar caracteres especiales\n      const cleanName = key === 'año' ? 'ano' : key.normalize(\"NFD\").replace(/[\\u0300-\\u036f]/g, \"\").replace(/ñ/g, \"n\");\n      const field = {\n        name: cleanName,\n        description: key\n      };\n\n      if (typeof value === 'string' && /^\\d{4}-\\d{2}-\\d{2}$/.test(value)) {\n        field.type = 'date';\n        field.options = {\n          dateFormat: { name: 'iso' }\n        };\n      } else if (typeof value === 'number') {\n        field.type = 'number';\n        field.options = {\n          precision: 0\n        };\n      } else if (typeof value === 'string') {\n        field.type = value.length > 100 ? 'multilineText' : 'singleLineText';\n      } else {\n        field.type = 'singleLineText';\n      }\n\n      if (key.toLowerCase() === 'estado') {\n        field.type = 'singleSelect';\n        field.options = {\n          choices: [\n            { name: \"Excelente\" },\n            { name: \"Muy bueno\" },\n            { name: \"Bueno\" },\n            { name: \"Regular\" }\n          ]\n        };\n      }\n\n      return field;\n    });\n\n    return [{\n      json: {\n        ...$json,\n        needsTableCreation: true,\n        createTablePayload: {\n          name: tableName,\n          description: `Tabla generada automáticamente para ${tableName}`,\n          fields: inferredFields\n        }\n      }\n    }];\n  } else {\n    const existingTable = existingTables.find(table => table.name === tableName);\n    return [{\n      json: {\n        ...$json,\n        needsTableCreation: false,\n        tableId: existingTable.id\n      }\n    }];\n  }\n} catch (error) {\n  console.error('❌ Error verificando tabla:', error);\n  return [{\n    json: {\n      ...$json,\n      error: true,\n      message: error.message\n    }\n  }];\n}\n"
+      },
+      "name": "Comprobar que la tabla existe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        560
+      ],
+      "id": "7a3af0bf-e9e4-4789-83cc-f54e1e89708d"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "759b0b9b-d926-42c2-b5ed-1fe8debbe77a",
+              "leftValue": "={{ $json[\"needsTableCreation\"].toString() }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "IF - ¿Necesita creación la tabla?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        480,
+        560
+      ],
+      "id": "467a5dd9-f858-4de4-aa63-b9d637273ade"
+    },
+    {
+      "parameters": {},
+      "name": "La tabla ya existe",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        816,
+        560
+      ],
+      "id": "2957dbde-a580-474a-87d2-a58a880409c6"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        864,
+        0
+      ],
+      "id": "7c2b6264-c167-4b25-95be-c985ad04bb16",
+      "name": "Combinar valores 2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const tableName = $json.tableName;\nconst baseId = \"appmACzQLckIXxlTG\";\n\nreturn [{\n  json: {\n    ...($json),\n    baseId,\n    checkUrl: `https://api.airtable.com/v0/meta/bases/${baseId}/tables`\n  }\n}];"
+      },
+      "name": "Preparar Datos de Tabla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -416,
+        560
+      ],
+      "id": "6dd3e59b-ecec-4b13-ba62-09a906848feb"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Cron inicial": {
+      "main": [
+        [
+          {
+            "node": "Obtener registros de google sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener registros de google sheets": {
+      "main": [
+        [
+          {
+            "node": "Procesar y agrupar datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar y agrupar datos": {
+      "main": [
+        [
+          {
+            "node": "Dividir en lotes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Descomponer registros": {
+      "main": [
+        [
+          {
+            "node": "Comprobar que la tabla existe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear nueva tabla": {
+      "main": [
+        [
+          {
+            "node": "Combinar valores 2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Intervalo de espera": {
+      "main": [
+        [
+          {
+            "node": "Dividir en lotes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - Insertar registros en airtable": {
+      "main": [
+        [
+          {
+            "node": "Intervalo de espera",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar registros para insertar": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Insertar registros en airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dividir en lotes": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Preparar Datos de Tabla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Comprobar tablas existentes": {
+      "main": [
+        [
+          {
+            "node": "Combinar valores 1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Combinar valores 1": {
+      "main": [
+        [
+          {
+            "node": "Descomponer registros",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Comprobar que la tabla existe": {
+      "main": [
+        [
+          {
+            "node": "IF - ¿Necesita creación la tabla?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - ¿Necesita creación la tabla?": {
+      "main": [
+        [
+          {
+            "node": "Crear nueva tabla",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Combinar valores 2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "La tabla ya existe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "La tabla ya existe": {
+      "main": [
+        [
+          {
+            "node": "Preparar registros para insertar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combinar valores 2": {
+      "main": [
+        [
+          {
+            "node": "Preparar registros para insertar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Datos de Tabla": {
+      "main": [
+        [
+          {
+            "node": "Comprobar tablas existentes",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Combinar valores 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "9d8f10a9-dd1f-4230-84c5-77fd98fd4e1a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7c837313f3e7cd99bc9033f5bb2f939cdff8b453048afec479658bc28cd4c26f"
+  },
+  "id": "Se3UqedfWRzLxUWe",
+  "tags": []
+}

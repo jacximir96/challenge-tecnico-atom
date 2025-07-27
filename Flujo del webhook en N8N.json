@@ -1,0 +1,246 @@
+{
+  "name": "My workflow 2",
+  "nodes": [
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "11kCLJSQ5LYLCSbrS0XWKMmbw6z4XaZ3siMx2kAEyvFE",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Hola1",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "name": "Obtener registros de google sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        960,
+        -64
+      ],
+      "id": "3ba98326-9142-49ea-b8cb-c1a5a03f44cf",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "uHrpZfmIrZXkhT13",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const requiredFields = ['tipo', 'marca'];\nconst data = $json.body || $json;\n\nconst missingFields = requiredFields.filter(field => !(field in data));\n\nif (missingFields.length > 0) {\n  return [\n    {\n      json: {\n        statusCode: 400,\n        body: {\n          success: \"false\",\n          error: `Faltan campos obligatorios: ${missingFields.join(', ')}`\n        }\n      }\n    }\n  ];\n}\n\n// Validaciones de contenido\nconst errors = [];\n\nif (typeof data.tipo !== 'string' || data.tipo.trim() === '') {\n  errors.push('El campo \"tipo\" debe ser un texto no vacío');\n}\n\nif (typeof data.marca !== 'string' || data.marca.trim() === '') {\n  errors.push('El campo \"marca\" debe ser un texto no vacío');\n}\n\nif (errors.length > 0) {\n  return [\n    {\n      json: {\n        statusCode: 400,\n        body: {\n          success: \"false\",\n          error: errors.join('; ')\n        }\n      }\n    }\n  ];\n}\n\n// Todo válido\nreturn [\n  {\n    json: {\n      statusCode: 200,\n      body: {\n        success: \"true\",\n        message: \"Todos los campos están presentes y son válidos\",\n        data: data\n      }\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        48
+      ],
+      "id": "dd8b8fa8-8b2f-4541-aaea-f13a80e9c95a",
+      "name": "Validación de parámetros obligatorios"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "dee393f6-cad6-4e2f-8f35-ed7987481daf",
+              "leftValue": "={{ $json.body.success }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "f3f1acb6-4f79-472a-b0af-02ae66a217e9",
+              "leftValue": "",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        48
+      ],
+      "id": "c57b7e1a-1a21-4d80-a4a8-70987c4a84fd",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extraer datos del primer item (tipo y marca vienen de body.data)\nconst entrada = items[0].json.body.data;\nconst tipo = entrada.tipo.toLowerCase();\nconst marca = entrada.marca.toLowerCase();\n\n// El resto de los items son los registros del Google Sheet\nconst registros = items.slice(1).map(item => item.json);\n\n// Filtrar los registros que coincidan con tipo y marca\nconst filtrados = registros.filter(registro =>\n  registro.Tipo?.toLowerCase() === tipo &&\n  registro.Marca?.toLowerCase() === marca\n);\n\n// Si no hay coincidencias\nif (filtrados.length === 0) {\n  return [\n    {\n      json: {\n        statusCode: 404,\n        body: {\n          success: false,\n          message: `No se encontraron registros para tipo \"${entrada.tipo}\" y marca \"${entrada.marca}\".`\n        }\n      }\n    }\n  ];\n}\n\n// Ordenar por Año y luego por Modelo\nfiltrados.sort((a, b) => {\n  if (a.Año !== b.Año) return a.Año - b.Año;\n  return a.Modelo.localeCompare(b.Modelo);\n});\n\n// Construir mensaje bonito\nlet mensaje = `🚗 *Vehículos disponibles para ${entrada.marca} - ${entrada.tipo}:*\\n\\n`;\n\nfiltrados.forEach((v, i) => {\n  mensaje += `${i + 1}️⃣ *${v.Marca} ${v.Modelo} (${v.Año})*\\n`;\n  mensaje += `💵 USD ${v[\"Precio (USD)\"]}\\n`;\n  mensaje += `🛠️ Último Mantenimiento: ${v[\"Último Mantenimiento\"]}\\n`;\n  mensaje += `📋 Estado: ${v.Estado}\\n`;\n  mensaje += `🆔 ID: ${v.row_number ?? v.rownumber ?? 'N/A'}\\n\\n`;\n});\n\n// Devolver respuesta con resultados + mensaje\nreturn [\n  {\n    json: {\n      statusCode: 200,\n      body: {\n        success: true,\n        total: filtrados.length,\n        results: filtrados,\n        message: mensaje\n      }\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        -400
+      ],
+      "id": "1000226e-d334-49cc-ada2-60176dfbf8d0",
+      "name": "Ordenar valores y entregar como respuesta"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1104,
+        -400
+      ],
+      "id": "422d2a66-fa28-48af-8ff9-9ef60cac9798",
+      "name": "Combinar datos"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "00e0f9b5-f6f8-498d-bff2-74c782e8b0e9",
+        "authentication": "basicAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        128,
+        48
+      ],
+      "id": "229e2ed0-820a-4d29-9f8f-78a72a80819c",
+      "name": "Inicio Webhook",
+      "webhookId": "00e0f9b5-f6f8-498d-bff2-74c782e8b0e9",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "p19XFLhb1mZO458C",
+          "name": "Unnamed credential"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.body }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1712,
+        64
+      ],
+      "id": "3d399244-184b-42ad-ad1e-36a4a3688e2f",
+      "name": "Respuesta a Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Obtener registros de google sheets": {
+      "main": [
+        [
+          {
+            "node": "Combinar datos",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Validación de parámetros obligatorios": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Obtener registros de google sheets",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Combinar datos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respuesta a Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ordenar valores y entregar como respuesta": {
+      "main": [
+        [
+          {
+            "node": "Respuesta a Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combinar datos": {
+      "main": [
+        [
+          {
+            "node": "Ordenar valores y entregar como respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inicio Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validación de parámetros obligatorios",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "33ecc42d-4e78-4d8e-a3db-12d86681be43",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7c837313f3e7cd99bc9033f5bb2f939cdff8b453048afec479658bc28cd4c26f"
+  },
+  "id": "wb8dpgkAsozHbM6O",
+  "tags": []
+}

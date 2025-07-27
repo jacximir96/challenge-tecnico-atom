@@ -1,0 +1,49 @@
+{
+	"info": {
+		"_postman_id": "147b6104-9b67-4549-9d92-3942200314ed",
+		"name": "Consumo de WEBHOOK de n8n",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "17340010"
+	},
+	"item": [
+		{
+			"name": "https://n8natom.duckdns.org/webhook/00e0f9b5-f6f8-498d-bff2-74c782e8b0e9",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Basic c29wb3J0ZS50ZWNuaWNvLmxvaWNrc29sdXRpb25AZ21haWwuY29tOkFkbWluaXN0cmFkb3IjI0NsYXZlU2VndXJhMjAyNSQk",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"tipo\": \"suv\",\r\n  \"marca\": \"infiniti\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://n8natom.duckdns.org/webhook/00e0f9b5-f6f8-498d-bff2-74c782e8b0e9",
+					"protocol": "https",
+					"host": [
+						"n8natom",
+						"duckdns",
+						"org"
+					],
+					"path": [
+						"webhook",
+						"00e0f9b5-f6f8-498d-bff2-74c782e8b0e9"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
